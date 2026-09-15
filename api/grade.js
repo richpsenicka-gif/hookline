@@ -34,57 +34,74 @@ module.exports = async (req, res) => {
 
   const prompt = buildPrompt(script, niche);
 
-  try {
-    const upstream = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=' + apiKey,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-            responseMimeType: 'application/json'
-          }
-        })
-      }
-    );
+  // Try a couple of models in order, in case one is temporarily overloaded
+  // on the free tier ("high demand" 503s are common on brand-new models).
+  const MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
 
-    if (!upstream.ok) {
-      const errText = await upstream.text();
-      console.error('Gemini API error:', upstream.status, errText);
-      res.status(502).json({ error: 'The grading service is temporarily unavailable. Please try again in a moment.' });
-      return;
-    }
+  let lastError = null;
 
-    const data = await upstream.json();
-    const text =
-      data &&
-      data.candidates &&
-      data.candidates[0] &&
-      data.candidates[0].content &&
-      data.candidates[0].content.parts &&
-      data.candidates[0].content.parts[0] &&
-      data.candidates[0].content.parts[0].text;
-
-    if (!text) {
-      res.status(502).json({ error: 'The grader returned an unexpected response. Please try again.' });
-      return;
-    }
-
-    let result;
+  for (const model of MODELS) {
     try {
-      result = JSON.parse(text);
-    } catch (e) {
-      res.status(502).json({ error: 'The grader returned a response that could not be read. Please try again.' });
-      return;
-    }
+      const upstream = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.4,
+              responseMimeType: 'application/json'
+            }
+          })
+        }
+      );
 
-    res.status(200).json(sanitizeResult(result));
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Something went wrong while grading your script.' });
+      if (!upstream.ok) {
+        const errText = await upstream.text();
+        console.error('Gemini API error (' + model + '):', upstream.status, errText);
+        lastError = { status: upstream.status, text: errText };
+        // 503 = overloaded, 429 = rate limited: worth trying the next model.
+        // Anything else (like a bad key) won't be fixed by switching models.
+        if (upstream.status === 503 || upstream.status === 429) {
+          continue;
+        }
+        break;
+      }
+
+      const data = await upstream.json();
+      const text =
+        data &&
+        data.candidates &&
+        data.candidates[0] &&
+        data.candidates[0].content &&
+        data.candidates[0].content.parts &&
+        data.candidates[0].content.parts[0] &&
+        data.candidates[0].content.parts[0].text;
+
+      if (!text) {
+        lastError = { status: 502, text: 'empty response' };
+        continue;
+      }
+
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        lastError = { status: 502, text: 'unparseable response' };
+        continue;
+      }
+
+      res.status(200).json(sanitizeResult(result));
+      return;
+    } catch (err) {
+      console.error('Request failed for model ' + model + ':', err);
+      lastError = { status: 500, text: String(err) };
+    }
   }
+
+  console.error('All models failed. Last error:', lastError);
+  res.status(502).json({ error: 'The grading service is temporarily unavailable (high demand on the free tier). Please try again in a moment.' });
 };
 
 function clampScore(n) {
