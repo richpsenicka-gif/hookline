@@ -34,11 +34,17 @@ module.exports = async (req, res) => {
 
   const prompt = buildPrompt(script, niche);
 
-  // Try a few models in order in case one is deprecated, rate-limited, or
-  // temporarily overloaded on the free tier. gemini-flash-latest is Google's
-  // alias for "current recommended flash model" and should usually work;
-  // the others are explicit fallbacks.
-  const MODELS = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-2.0-flash'];
+  // Try several models in order. The "flash-lite" models are smaller/cheaper
+  // for Google to serve, so they tend to have far more free-tier headroom
+  // than the full flash models during high-demand periods. Full flash models
+  // are tried first for quality, lite models are the reliability fallback.
+  const MODELS = [
+    'gemini-flash-latest',
+    'gemini-3.6-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite'
+  ];
 
   let lastError = null;
 
