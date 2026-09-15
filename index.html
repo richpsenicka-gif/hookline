@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hookline — Grade Your YouTube Script</title>
+<meta name="description" content="Paste your faceless YouTube script and get an instant hook, pacing, and originality score with rewrite suggestions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d14;
+    --bg-card: #131725;
+    --bg-card-2: #1a1f33;
+    --border: #262c44;
+    --text: #eef0f7;
+    --text-dim: #9aa1b9;
+    --accent: #6c5ce7;
+    --accent-2: #00d9c0;
+    --danger: #ff5c72;
+    --good: #35d488;
+    --warn: #ffb648;
+    --radius: 16px;
+    --shadow: 0 20px 60px rgba(0,0,0,0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #1a1f3d 0%, transparent 60%),
+                radial-gradient(1000px 500px at 100% 0%, #14263a 0%, transparent 55%),
+                var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 20px 80px; }
+  header { text-align: center; margin-bottom: 36px; }
+  .logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
+  .logo-mark { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display:flex; align-items:center; justify-content:center; font-size: 17px; }
+  header p { color: var(--text-dim); margin-top: 10px; font-size: 15px; }
+  .card {
+    background: linear-gradient(180deg, var(--bg-card), var(--bg-card-2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow);
+  }
+  label { display:block; font-size: 13px; font-weight: 600; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;}
+  textarea {
+    width: 100%; min-height: 220px; resize: vertical;
+    background: #0d1020; border: 1px solid var(--border); border-radius: 12px;
+    color: var(--text); font-family: inherit; font-size: 15px; padding: 16px;
+    outline: none; transition: border-color .15s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .row { display:flex; gap: 16px; margin-top: 18px; flex-wrap: wrap; align-items: flex-end; }
+  .field { flex: 1; min-width: 220px; }
+  select {
+    width: 100%; background: #0d1020; border: 1px solid var(--border); color: var(--text);
+    padding: 12px 14px; border-radius: 10px; font-size: 14px; font-family: inherit; outline: none;
+  }
+  .charcount { font-size: 12px; color: var(--text-dim); margin-top: 6px; text-align: right;}
+  .btn {
+    appearance: none; border: none; cursor: pointer; font-family: inherit;
+    background: linear-gradient(135deg, var(--accent), #8f7bff);
+    color: white; font-weight: 700; font-size: 15px; padding: 14px 22px; border-radius: 12px;
+    display: inline-flex; align-items: center; gap: 8px; transition: transform .12s, box-shadow .12s;
+    box-shadow: 0 10px 24px rgba(108,92,231,0.35);
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    box-shadow: none; font-weight: 600;
+  }
+  .actions { display:flex; justify-content: space-between; align-items: center; margin-top: 20px; gap: 12px; flex-wrap: wrap;}
+  .hint { font-size: 13px; color: var(--text-dim); }
+  .spinner { width:16px; height:16px; border-radius:50%; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; animation: spin .7s linear infinite; display:inline-block; vertical-align: middle;}
+  @keyframes spin { to { transform: rotate(360deg);} }
+  .banner { border-radius: 12px; padding: 14px 16px; font-size: 14px; margin-top: 18px; display:none; }
+  .banner.error { background: rgba(255,92,114,0.12); border: 1px solid rgba(255,92,114,0.35); color: #ffb3bf; }
+
+  #results { display:none; margin-top: 28px; }
+  .score-hero { display:flex; align-items:center; gap: 24px; padding: 24px; border-radius: var(--radius);
+    background: linear-gradient(135deg, rgba(108,92,231,0.16), rgba(0,217,192,0.10)); border: 1px solid var(--border); }
+  .score-ring { position: relative; width: 108px; height: 108px; flex-shrink: 0; }
+  .score-ring svg { transform: rotate(-90deg); }
+  .score-ring circle#ringFg { transition: stroke-dashoffset .8s ease; }
+  .score-ring .num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+  .score-ring .num span:first-child { font-size: 30px; font-weight: 800; }
+  .score-ring .num span:last-child { font-size: 10px; color: var(--text-dim); text-transform:uppercase; letter-spacing:.05em;}
+  .score-hero .summary h2 { margin: 0 0 6px; font-size: 18px; }
+  .score-hero .summary p { margin:0; color: var(--text-dim); font-size: 14px; }
+
+  .subscores { display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
+  .subscore { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+  .subscore .label-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .subscore .label-row .name { font-weight: 700; font-size: 14px; }
+  .subscore .label-row .val { font-weight: 800; font-size: 15px; }
+  .bar { height: 8px; border-radius: 6px; background: #0d1020; overflow:hidden; margin-bottom: 12px;}
+  .bar > div { height:100%; border-radius:6px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); width:0%; transition: width .8s ease; }
+  .subscore p { margin:0; font-size: 13px; color: var(--text-dim); }
+
+  .rewrites { margin-top: 22px; }
+  .rewrites h3, .verdict h3 { font-size: 15px; margin-bottom: 12px; }
+  .rewrite-item { background: var(--bg-card); border:1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .rewrite-item .orig { color: var(--danger); font-size: 13px; text-decoration: line-through; opacity: 0.85; margin-bottom: 6px;}
+  .rewrite-item .imp { color: var(--good); font-size: 14px; font-weight: 500; }
+
+  .share-row { display:flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  footer { text-align:center; margin-top: 48px; color: var(--text-dim); font-size: 13px; }
+  @media (max-width: 640px) {
+    .subscores { grid-template-columns: 1fr; }
+    .score-hero { flex-direction: column; text-align:center; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"><span class="logo-mark">🎣</span> Hookline</div>
+      <p>Paste your faceless YouTube script. Get your Retention Score before you hit record.</p>
+    </header>
+
+    <div class="card">
+      <label for="script">Your script</label>
+      <textarea id="script" maxlength="12000" placeholder="Paste your full script, or just your opening hook, here..."></textarea>
+      <div class="charcount"><span id="charcount">0</span> / 12,000 characters</div>
+
+      <div class="row">
+        <div class="field">
+          <label for="niche">Niche (optional, improves accuracy)</label>
+          <select id="niche">
+            <option value="">General / not sure</option>
+            <option value="Finance & Investing">Finance & Investing</option>
+            <option value="True Crime">True Crime</option>
+            <option value="History">History</option>
+            <option value="Motivation & Self-Improvement">Motivation & Self-Improvement</option>
+            <option value="Facts & Listicles">Facts & Listicles</option>
+            <option value="Tech & Gadgets">Tech & Gadgets</option>
+            <option value="Horror & Creepypasta">Horror & Creepypasta</option>
+            <option value="Health & Wellness">Health & Wellness</option>
+            <option value="Space & Science">Space & Science</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="gradeBtn"><span id="btnLabel">Grade my script</span></button>
+        <div class="hint" id="quotaHint">3 free grades per day · no sign-up needed</div>
+      </div>
+
+      <div class="banner error" id="errorBanner"></div>
+    </div>
+
+    <div id="results">
+      <div class="score-hero">
+        <div class="score-ring">
+          <svg width="108" height="108">
+            <circle cx="54" cy="54" r="46" stroke="#262c44" stroke-width="10" fill="none"></circle>
+            <circle id="ringFg" cx="54" cy="54" r="46" stroke="url(#grad)" stroke-width="10" fill="none" stroke-linecap="round"></circle>
+            <defs>
+              <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#6c5ce7"/>
+                <stop offset="100%" stop-color="#00d9c0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="num"><span id="overallNum">--</span><span>SCORE</span></div>
+        </div>
+        <div class="summary">
+          <h2>Retention Score</h2>
+          <p id="summaryText">Your results will appear here.</p>
+        </div>
+      </div>
+
+      <div class="subscores">
+        <div class="subscore">
+          <div class="label-row"><span class="name">Hook</span><span class="val" id="hookVal">--</span></div>
+          <div class="bar"><div id="hookBar"></div></div>
+          <p id="hookFeedback"></p>
+        </div>
+        <div class="subscore">
+          <div class="label-row"><span class="name">Pacing</span><span class="val" id="pacingVal">--</span></div>
+          <div class="bar"><div id="pacingBar"></div></div>
+          <p id="pacingFeedback"></p>
+        </div>
+        <div class="subscore">
+          <div class="label-row"><span class="name">Originality</span><span class="val" id="origVal">--</span></div>
+          <div class="bar"><div id="origBar"></div></div>
+          <p id="origFeedback"></p>
+        </div>
+      </div>
+
+      <div class="rewrites">
+        <h3>Suggested rewrites</h3>
+        <div id="rewriteList"></div>
+      </div>
+
+      <div class="share-row">
+        <button class="btn btn-ghost" id="copyBtn">Copy summary</button>
+        <button class="btn btn-ghost" id="downloadBtn">Download score card</button>
+        <button class="btn btn-ghost" id="againBtn">Grade another script</button>
+      </div>
+    </div>
+
+    <footer>Hookline · your script is sent to an AI grader and is not stored anywhere.</footer>
+  </div>
+
+<script>
+  const DAILY_LIMIT = 3;
+  const el = (id) => document.getElementById(id);
+  const scriptEl = el('script'), nicheEl = el('niche'), charcountEl = el('charcount');
+  const gradeBtn = el('gradeBtn'), btnLabel = el('btnLabel'), errorBanner = el('errorBanner');
+  const results = el('results'), quotaHint = el('quotaHint');
+
+  scriptEl.addEventListener('input', () => { charcountEl.textContent = scriptEl.value.length; });
+
+  function todayStr() { return new Date().toISOString().slice(0,10); }
+
+  function getUsage() {
+    try {
+      const raw = localStorage.getItem('hookline_usage');
+      const today = todayStr();
+      if (!raw) return { date: today, count: 0 };
+      const parsed = JSON.parse(raw);
+      if (parsed.date !== today) return { date: today, count: 0 };
+      return parsed;
+    } catch (e) { return { date: todayStr(), count: 0 }; }
+  }
+  function bumpUsage() {
+    const usage = getUsage();
+    usage.count += 1;
+    try { localStorage.setItem('hookline_usage', JSON.stringify(usage)); } catch (e) {}
+    return usage;
+  }
+  function refreshQuotaUI() {
+    const usage = getUsage();
+    const remaining = Math.max(0, DAILY_LIMIT - usage.count);
+    quotaHint.textContent = remaining > 0
+      ? remaining + ' free grade' + (remaining === 1 ? '' : 's') + ' left today · no sign-up needed'
+      : "You've used today's free grades — come back tomorrow";
+    gradeBtn.disabled = remaining <= 0;
+  }
+  refreshQuotaUI();
+
+  function showError(msg) { errorBanner.textContent = msg; errorBanner.style.display = 'block'; }
+  function hideError() { errorBanner.style.display = 'none'; }
+
+  gradeBtn.addEventListener('click', async () => {
+    hideError();
+    const script = scriptEl.value.trim();
+    if (script.length < 20) { showError('Paste a bit more of your script — at least a couple of sentences.'); return; }
+    const usage = getUsage();
+    if (usage.count >= DAILY_LIMIT) { showError("You've used today's free grades. Come back tomorrow for 3 more."); return; }
+
+    gradeBtn.disabled = true;
+    btnLabel.innerHTML = '<span class="spinner"></span> Grading...';
+
+    try {
+      const res = await fetch('/api/grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script: script, niche: nicheEl.value })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Something went wrong. Please try again.'); return; }
+      renderResults(data);
+      bumpUsage();
+    } catch (err) {
+      showError('Could not reach the grading service. Check your connection and try again.');
+    } finally {
+      btnLabel.textContent = 'Grade my script';
+      refreshQuotaUI();
+    }
+  });
+
+  function scoreColor(score) {
+    if (score >= 75) return 'var(--good)';
+    if (score >= 50) return 'var(--warn)';
+    return 'var(--danger)';
+  }
+
+  function renderResults(data) {
+    results.style.display = 'block';
+    el('overallNum').textContent = data.overall_score;
+    el('summaryText').textContent = data.summary || '';
+
+    const circumference = 2 * Math.PI * 46;
+    const ring = el('ringFg');
+    const pct = Math.max(0, Math.min(100, data.overall_score)) / 100;
+    ring.style.strokeDasharray = circumference;
+    ring.style.strokeDashoffset = circumference; // start empty
+    requestAnimationFrame(() => { ring.style.strokeDashoffset = circumference * (1 - pct); });
+
+    setSub('hook', data.hook_score, data.hook_feedback);
+    setSub('pacing', data.pacing_score, data.pacing_feedback);
+    setSub('orig', data.originality_score, data.originality_feedback);
+
+    const list = el('rewriteList');
+    list.innerHTML = '';
+    (data.rewrites || []).forEach((r) => {
+      const div = document.createElement('div');
+      div.className = 'rewrite-item';
+      const origDiv = document.createElement('div');
+      origDiv.className = 'orig';
+      origDiv.textContent = '"' + r.original + '"';
+      const impDiv = document.createElement('div');
+      impDiv.className = 'imp';
+      impDiv.textContent = '→ ' + r.improved;
+      div.appendChild(origDiv);
+      div.appendChild(impDiv);
+      list.appendChild(div);
+    });
+
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setSub(prefix, score, feedback) {
+    el(prefix + 'Val').textContent = score;
+    el(prefix + 'Bar').style.width = score + '%';
+    el(prefix + 'Bar').style.background = scoreColor(score);
+    el(prefix + 'Feedback').textContent = feedback || '';
+  }
+
+  el('againBtn').addEventListener('click', () => {
+    results.style.display = 'none';
+    scriptEl.focus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  el('copyBtn').addEventListener('click', async () => {
+    const overall = el('overallNum').textContent;
+    const text = 'My script scored ' + overall + '/100 on Hookline 🎣\n' +
+      'Hook: ' + el('hookVal').textContent + ' · Pacing: ' + el('pacingVal').textContent + ' · Originality: ' + el('origVal').textContent + '\n' +
+      'Graded free at ' + window.location.href;
+    try {
+      await navigator.clipboard.writeText(text);
+      el('copyBtn').textContent = 'Copied!';
+      setTimeout(() => { el('copyBtn').textContent = 'Copy summary'; }, 1500);
+    } catch (e) {
+      showError('Could not copy — your browser may be blocking clipboard access.');
+    }
+  });
+
+  el('downloadBtn').addEventListener('click', () => {
+    const overall = el('overallNum').textContent;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200; canvas.height = 675;
+    const ctx = canvas.getContext('2d');
+
+    const bgGrad = ctx.createLinearGradient(0, 0, 1200, 675);
+    bgGrad.addColorStop(0, '#0b0d14');
+    bgGrad.addColorStop(1, '#181233');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, 1200, 675);
+
+    ctx.fillStyle = '#9aa1b9';
+    ctx.font = '600 28px Inter, sans-serif';
+    ctx.fillText('HOOKLINE SCORE CARD', 80, 100);
+
+    const numGrad = ctx.createLinearGradient(0, 200, 400, 420);
+    numGrad.addColorStop(0, '#6c5ce7');
+    numGrad.addColorStop(1, '#00d9c0');
+    ctx.fillStyle = numGrad;
+    ctx.font = '800 220px Inter, sans-serif';
+    ctx.fillText(overall, 80, 420);
+
+    ctx.fillStyle = '#eef0f7';
+    ctx.font = '600 36px Inter, sans-serif';
+    ctx.fillText('/ 100 Retention Score', 420, 420);
+
+    ctx.fillStyle = '#9aa1b9';
+    ctx.font = '500 24px Inter, sans-serif';
+    ctx.fillText('Hook ' + el('hookVal').textContent + '   ·   Pacing ' + el('pacingVal').textContent + '   ·   Originality ' + el('origVal').textContent, 80, 500);
+
+    ctx.fillStyle = '#565d77';
+    ctx.font = '500 20px Inter, sans-serif';
+    ctx.fillText('Graded free — paste your script and get yours', 80, 600);
+
+    const link = document.createElement('a');
+    link.download = 'hookline-score-card.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+</script>
+</body>
+</html>
