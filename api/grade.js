@@ -34,9 +34,11 @@ module.exports = async (req, res) => {
 
   const prompt = buildPrompt(script, niche);
 
-  // Try a couple of models in order, in case one is temporarily overloaded
-  // on the free tier ("high demand" 503s are common on brand-new models).
-  const MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
+  // Try a few models in order in case one is deprecated, rate-limited, or
+  // temporarily overloaded on the free tier. gemini-flash-latest is Google's
+  // alias for "current recommended flash model" and should usually work;
+  // the others are explicit fallbacks.
+  const MODELS = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-2.0-flash'];
 
   let lastError = null;
 
@@ -61,9 +63,11 @@ module.exports = async (req, res) => {
         const errText = await upstream.text();
         console.error('Gemini API error (' + model + '):', upstream.status, errText);
         lastError = { status: upstream.status, text: errText };
-        // 503 = overloaded, 429 = rate limited: worth trying the next model.
-        // Anything else (like a bad key) won't be fixed by switching models.
-        if (upstream.status === 503 || upstream.status === 429) {
+        // 404 = model unavailable/deprecated, 429 = rate limited,
+        // 503 = overloaded: all worth trying the next model.
+        // Anything else (like a bad key, 400/401/403) won't be fixed by
+        // switching models, so stop trying.
+        if (upstream.status === 404 || upstream.status === 429 || upstream.status === 503) {
           continue;
         }
         break;
@@ -80,7 +84,7 @@ module.exports = async (req, res) => {
         data.candidates[0].content.parts[0].text;
 
       if (!text) {
-        lastError = { status: 502, text: 'empty response' };
+        lastError = { status: 502, text: 'empty response from ' + model };
         continue;
       }
 
@@ -88,7 +92,7 @@ module.exports = async (req, res) => {
       try {
         result = JSON.parse(text);
       } catch (e) {
-        lastError = { status: 502, text: 'unparseable response' };
+        lastError = { status: 502, text: 'unparseable response from ' + model };
         continue;
       }
 
@@ -101,7 +105,7 @@ module.exports = async (req, res) => {
   }
 
   console.error('All models failed. Last error:', lastError);
-  res.status(502).json({ error: 'The grading service is temporarily unavailable (high demand on the free tier). Please try again in a moment.' });
+  res.status(502).json({ error: 'The grading service is temporarily unavailable. Please try again in a moment.' });
 };
 
 function clampScore(n) {
